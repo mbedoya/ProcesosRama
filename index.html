@@ -60,6 +60,7 @@
                     <th>Solicitud</th>
                     <th>Estado</th>
                     <th>% Ejecución</th>
+                    <th>Tiempo</th>
                     <th>Acciones</th>
                     <th></th>
                 </tr>
@@ -118,6 +119,7 @@
         var personas = null;
         var guardardoIniciado = false;
         var estadosPersonas = [];
+        var intTiempos;
 
         //Variable para manejo de interval de chequeo de procesos terminados
         var intId;
@@ -239,6 +241,7 @@
                     console.log("Procesos terminados");
 
                     clearInterval(intId);
+                    clearInterval(intTiempos);
 
                     respuestas = [];
 
@@ -287,10 +290,34 @@
             //Adicionar Procesos a la tabla
             for(i=0; i<clavesKonfirma.length; i++){
                 var solicitud = clavesKonfirma[i].split('_')[1];
+
+                //Adicionar registro a la tabla
                 var porcentaje = '<div id="progreso_' + solicitud + '" class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%"></div></div>';    
-                var fila = '<tr id="fila' + solicitud + '"><td>' + solicitud + '</td><td>Finalizado</td><td>' + porcentaje + '</td><td></td><td></td></tr>';
+                var tiempoEjecucion = '<div id="tiempo_' + solicitud + '" >00:00:00</div>';    
+                var fila = '<tr id="fila' + solicitud + '"><td>' + solicitud + '</td><td>En Ejecución</td><td>' + porcentaje + '</td><td>' + tiempoEjecucion + '</td><td></td><td></td></tr>';
                 $('#tablaDatos > tbody:last-child').append(fila);
             }
+        }
+
+        function formatearSegundos(val) {
+            var sec_num = parseInt(val, 10); // don't forget the second param
+            var hours   = Math.floor(sec_num / 3600);
+            var minutes = Math.floor((sec_num - (hours * 3600)) / 60);
+            var seconds = sec_num - (hours * 3600) - (minutes * 60);
+
+            if (hours   < 10) {hours   = "0"+hours;}
+            if (minutes < 10) {minutes = "0"+minutes;}
+            if (seconds < 10) {seconds = "0"+seconds;}
+            return hours+':'+minutes+':'+seconds;
+        }
+
+        function mostrarTiempoEjecucion(){
+
+            var segundos = 0;
+            intTiempos = setInterval(function(){
+                $("#tiempo_" + idSolicitud).html(formatearSegundos(segundos));
+                segundos++;
+            }, 1000);
         }
 
         //Recibir los eventos de las ventanas que ejecutan los procesos
@@ -382,7 +409,8 @@
 
                         //Adicionar registro a la tabla
                         var porcentaje = '<div id="progreso_' + datos.solicitud + '" class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%"></div></div>';    
-                        var fila = '<tr id="fila' + datos.solicitud + '"><td>' + datos.solicitud + '</td><td>En Ejecución</td><td>' + porcentaje + '</td><td></td><td></td></tr>';
+                        var tiempoEjecucion = '<div id="tiempo_' + datos.solicitud + '" >00:00:00</div>';    
+                        var fila = '<tr id="fila' + datos.solicitud + '"><td>' + datos.solicitud + '</td><td>En Ejecución</td><td>' + porcentaje + '</td><td>' + tiempoEjecucion + '</td><td></td><td></td></tr>';
                         $('#tablaDatos > tbody:last-child').append(fila);
                         
                         //Abrir tantas ventanas como personas
@@ -400,6 +428,8 @@
 
                             }, 2000 * index, index);
                         }
+
+                        mostrarTiempoEjecucion();
                     }else{
                         mostrarMensaje("mensajePersonasNosEncontradas");
                     }                    
