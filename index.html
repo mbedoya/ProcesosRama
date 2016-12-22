@@ -120,6 +120,7 @@
         var guardardoIniciado = false;
         var estadosPersonas = [];
         var intTiempos;
+        var tipoSujeto;
 
         //Variable para manejo de interval de chequeo de procesos terminados
         var intId;
@@ -342,11 +343,11 @@
                         console.log(event.data.persona);
 
                         //Lanzar de nuevo el proceso para la persona pero iniciando en el indice de ciudad
-                        var wdw = window.open(urlConsultaProcesos, "_blank");
+                        var wdw2 = window.open(urlConsultaProcesos, "_blank");
 
                         setTimeout(function(){
-                            var mensaje = { objeto: event.data.persona, indice: event.data.id, indiceCiudad: indiceCiudad, procesos: event.data.procesos }
-                            wdw.postMessage(mensaje, '*');
+                            var mensaje = { objeto: event.data.persona, indice: event.data.id, indiceCiudad: indiceCiudad, tipoSujeto: tipoSujeto, procesos: event.data.procesos }
+                            wdw2.postMessage(mensaje, '*');
                         }, 12000);
                         
                     }else{
