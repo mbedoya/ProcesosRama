@@ -376,6 +376,7 @@
                     idSolicitud = datos.solicitud;
                     entidad = datos.entidad;
                     personas = datos.personas;
+                    tipoSujeto = datos.tiposujeto;
 
                     if(personas != null && personas.length > 0){
 
@@ -393,7 +394,7 @@
 
                                 //Se dan 10 segundos para que la página de procesos cargue
                                 setTimeout(function(index){
-                                    var mensaje = { objeto: datos.personas[index], indice: index }
+                                    var mensaje = { objeto: datos.personas[index], indice: index, tipoSujeto: tipoSujeto }
                                     wdw.postMessage(mensaje, '*');
                                 }, 10000, index);
 
