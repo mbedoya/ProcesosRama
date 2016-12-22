@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>Konfirma - Ejecución de Procesos de la Rama Judicial</title>
+
+    <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+    <div class="jumbotron text-center">
+        <h2>Ejecución de Procesos de Rama Judicial</h2>
+    </div>
+
+    <div class="container">
+
+        <div id="mensajeBuscando" class="alert alert-info hidden">
+            <img src="img/loading.gif" /> Buscando nuevas solicitudes para Ejecutar...
+        </div>
+
+        <div id="mensajeEncontrado" class="alert alert-info hidden">
+            Se ha encontrado una solicitud para Ejecutar <span id="mensajeEncontradoNumero"><span>
+        </div>
+
+        <div id="mensajeNoEncontrado" class="alert alert-warning hidden" style="visibilty:hidden">
+            No se han encontrado solicitudes para Ejecutar.
+        </div>
+
+        <div id="mensajePersonasNosEncontradas" class="alert alert-warning hidden" style="visibilty:hidden">
+            No se han encontrado personas para la solicitud disponible.
+        </div>
+
+        <div id="mensajeErrorConsulta" class="alert alert-danger hidden" style="visibilty:hidden">
+            Se ha presentado un error en la consulta de solicitudes
+        </div>
+
+        <div id="mensajeErrorGuardado" class="alert alert-danger hidden" style="visibilty:hidden">
+            Se ha presentado un error guardando el Proceso 1244
+        </div>
+
+        <div id="mensajeGuardado" class="alert alert-info hidden" style="visibilty:hidden">
+            Proceso guardado exitósamente
+        </div>
+
+        <table id="tablaDatos" class="table">
+            <thead>
+                <tr>
+                    <th>Solicitud</th>
+                    <th>Estado</th>
+                    <th>% Ejecución</th>
+                    <th>Acciones</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!--
+            <tr>
+                <td>123</td>
+                <td>Finalizado</td>
+                <td>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width:100%">
+                            100%
+                        </div>
+                    </div>
+                </td>
+                <td><span class="glyphicon glyphicon-remove"></span></td>
+            <td>
+            </td>
+            </tr>
+            -->
+            </tbody>
+            </table>
+
+            <div class="row">
+                <div class="col-sm-4">
+                    <h3>&nbsp;</h3>
+                </div>
+                <div class="col-sm-4">
+                    <h3>&nbsp;</h3>
+                </div>
+                <div class="col-sm-4">
+                    <button id="btnIniciar" type="button" class="btn btn-default">Iniciar <span class="glyphicon glyphicon-play-circle"></span></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+        <script src="js/jquery.min.js"></script>
+        <!-- Include all compiled plugins (below), or include individual files as needed -->
+        <script src="js/bootstrap.min.js"></script>
+
+        <script>
+
+        //VARIABLES GLOBALES
+        var urlConsulta_Konfirma = "http://52.24.84.124:4312/RamaJudicialKon/resources/Riesgos/RamaConsulta";
+        var urlRegistro_Konfirma = "http://52.24.84.124:4312/RamaJudicialKon/resources/Riesgos/RamaInsert";
+        var usuario_Konfirma = "KonfirmaRama";
+        var clave_Konfirma = "z8uE9uEVI*fvV*$@k&O9";
+
+        var urlConsultaProcesos = "http://procesos.ramajudicial.gov.co/consultaprocesos/";
+
+        var prefijoAlmacenamientoLocal = "konfirma";
+        var idSolicitud = null;
+        var entidad = null;
+        var personas = null;
+        var guardardoIniciado = false;
+        var estadosPersonas = [];
+
+        //Variable para manejo de interval de chequeo de procesos terminados
+        var intId;
+
+        function invocarServicioGuardado(fx, respuestasTodos){
+
+            console.log("objeto a enviar a Konfirma");
+
+            var objetoData = {
+                "usuario": usuario_Konfirma,
+                "clave": clave_Konfirma,
+                "solicitud": idSolicitud,
+                "entidad": entidad,
+                "identificaciones": respuestasTodos
+            };
+
+            console.log(JSON.stringify(objetoData));
+
+            var jqxhr = $.ajax({
+                url: urlRegistro_Konfirma,
+                data: JSON.stringify(objetoData),
+                dataType: "json",
+                type: "POST",
+                contentType: "application/json"
+            })
+            .done(function( data ) {
+                console.log(data);
+                fx(true, data);
+            })
+            .fail(function() {
+                console.log("error invocando Konfirma");
+                fx(false);
+            })
+            ;
+        }
+
+        function invocarServicioConsulta(fx){
+            var jqxhr = $.ajax( { 
+                url: urlConsulta_Konfirma,
+                data: JSON.stringify(
+                    {
+                        "usuario": usuario_Konfirma,
+                        "clave": clave_Konfirma
+                    }),
+                dataType: "json",
+                type: "POST",
+                contentType: "application/json"
+            })
+            .done(function( data ) {
+                console.log(data);
+                fx(true, data);
+            })
+            .fail(function() {
+                console.log("error invocando Konfirma");
+                fx(false);
+            })
+            ;
+        }
+
+        function ocultarMensajes(){
+            $("#mensajeErrorConsulta").addClass("hidden");
+            $("#mensajeBuscando").addClass("hidden");
+            $("#mensajeEncontrado").addClass("hidden");
+        }
+
+        function mostrarMensaje(id){
+            $("#" + id).removeClass("hidden");
+        }
+
+        function ocultarMensaje(id){
+            $("#" + id).addClass("hidden");
+        }
+
+        function guardarEstadoPersona(datos){
+            //Buscar si la persona existe
+            var indiceP = -1;
+            for(i=0; i<estadosPersonas.length; i++){
+                if(estadosPersonas[i].id == datos.id){
+                    indiceP = i;
+                    break;
+                }
+            }
+
+            //Persona no encontrada?
+            if(indiceP == -1){
+                estadosPersonas.push(datos);
+                indiceP = estadosPersonas.length-1;
+            }
+            estadosPersonas[indiceP] = datos;
+
+            //Se guarda el estado de las personas para futuro control
+            localStorage[prefijoAlmacenamientoLocal + "_" + idSolicitud] = JSON.stringify(estadosPersonas);
+        }
+
+        //Indica si todos los procesos han sido finalizados
+        function procesosTerminados(){
+            var terminados = true;
+
+            for(i=0; i<estadosPersonas.length; i++){
+                if(!estadosPersonas[i].finalizado){
+                    terminados = false;
+                    break;
+                }
+            }            
+
+            return terminados;
+        }
+
+        function procesarEnvioResultados(){
+            console.log("Proceso de guardado iniciado");
+
+            //Cada 30 segundos se valida si todos los procesos han terminado, esto después que termine el primer proceso
+            intId = setInterval(function(){
+
+                console.log("Verificando si todos los procesos ya terminaron");
+
+                if(procesosTerminados()){
+
+                    console.log("Procesos terminados");
+
+                    clearInterval(intId);
+
+                    respuestas = [];
+
+                    //Adicionar las respuestas de todas las personas
+                    for(i=0; i<estadosPersonas.length; i++){
+
+                        var persona = estadosPersonas[i].persona;
+
+                        respuestas.push({
+                            "tipoIdentificacion": persona.tipoIdentificacion,
+                            "numeroIdentificacion": persona.numeroIdentificacion ,
+                            "nombres": persona.nombres,
+                            "apellidos": persona.apellidos,
+                            "razon_social": persona.razon_social,
+                            "tipo_persona": persona.tipo_persona,
+                            "respuesta": estadosPersonas[i].procesos
+                        });
+                    }
+
+                    invocarServicioGuardado(function(exitoso){
+
+                        if(exitoso){
+                            mostrarMensaje("mensajeGuardado");
+                        }else{
+                            mostrarMensaje("mensajeErrorGuardado");
+                        }
+                        
+                    }, respuestas);
+                }  
+
+            }, 30000);
+
+            
+        }
+
+        function buscarProcesosAlmacenados(){
+
+            var clavesAlmacenamiento = Object.keys(localStorage);
+            var clavesKonfirma = [];
+            for(i=0; i<clavesAlmacenamiento.length; i++){
+                if(clavesAlmacenamiento[i].indexOf(prefijoAlmacenamientoLocal) > -1){
+                    clavesKonfirma.push(clavesAlmacenamiento[i]);
+                }
+            }
+
+            //Adicionar Procesos a la tabla
+            for(i=0; i<clavesKonfirma.length; i++){
+                var solicitud = clavesKonfirma[i].split('_')[1];
+                var porcentaje = '<div id="progreso_' + solicitud + '" class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%"></div></div>';    
+                var fila = '<tr id="fila' + solicitud + '"><td>' + solicitud + '</td><td>Finalizado</td><td>' + porcentaje + '</td><td></td><td></td></tr>';
+                $('#tablaDatos > tbody:last-child').append(fila);
+            }
+        }
+
+        //Recibir los eventos de las ventanas que ejecutan los procesos
+        window.addEventListener('message', function(event) { 
+
+            // IMPORTANT: Check the origin of the data! 
+            if (~event.origin.indexOf('http://procesos.ramajudicial')) { 
+                // The data has been sent from your site 
+
+                // The data sent with postMessage is stored in event.data 
+                console.log(event.data);
+
+                if(event.data.estado && event.data.indiceCiudad){
+                    var indiceCiudad = event.data.indiceCiudad;
+                    var cantidadCiudades = event.data.cantidadCiudades;
+                    var porcentaje = Math.round((indiceCiudad/cantidadCiudades)*100);
+
+                    //Proceso detenido?
+                    if(event.data.cantidadCiudades == 1){
+
+                        console.log("Se ha encontrado proceso detenido, se lanza de nuevo");
+                        console.log(event.data.persona);
+
+                        //Lanzar de nuevo el proceso para la persona pero iniciando en el indice de ciudad
+                        var wdw = window.open(urlConsultaProcesos, "_blank");
+
+                        setTimeout(function(){
+                            var mensaje = { objeto: event.data.persona, indice: event.data.id, indiceCiudad: indiceCiudad, procesos: event.data.procesos }
+                            wdw.postMessage(mensaje, '*');
+                        }, 12000);
+                        
+                    }else{
+
+                        guardarEstadoPersona(event.data);
+
+                        //Se toma como base para el progreso la última persona
+                        if(event.data.id == personas.length-1){
+                            $("#progreso_" + idSolicitud).html('<div class="progress-bar" role="progressbar" aria-valuenow="' + porcentaje + '" aria-valuemin="0" aria-valuemax="100" style="width:' + porcentaje + '%">' + porcentaje + '%</div>');
+                        }
+
+                        //Sólo se llama a guardar si se ha finalizado, si no se ha iniciado ya el proceso y cuando la persona 0 termina
+                        if(event.data.finalizado && !guardardoIniciado && event.data.id == 0){
+                        //if(event.data.indiceCiudad == 10 && !guardardoIniciado && event.data.id == 0){
+
+                            guardardoIniciado = true;
+
+                            procesarEnvioResultados();
+                        }
+
+                    }
+
+                    
+                }
+            } else { 
+                // The data hasn't been sent from your site! 
+                // Be careful! Do not use it. 
+                return; 
+            } 
+        });
+
+    $(document).ready(function(){
+
+        //Buscar todos los procesos que están almacenados localmente
+        buscarProcesosAlmacenados();
+         
+        $("#btnIniciar").click(function(){
+
+            guardardoIniciado = false;
+            estadosPersonas = [];
+            ocultarMensajes();
+            mostrarMensaje("mensajeBuscando");
+            console.log("iniciando");
+
+            //Buscar las consultas disponibles
+            invocarServicioConsulta(function(exitoso, datos){
+
+                ocultarMensaje("mensajeBuscando");
+                if(exitoso){
+
+                    mostrarMensaje("mensajeEncontrado");
+                    $("#mensajeEncontradoNumero").html(datos.solicitud);
+
+                    idSolicitud = datos.solicitud;
+                    entidad = datos.entidad;
+                    personas = datos.personas;
+
+                    if(personas != null && personas.length > 0){
+
+                        //Adicionar registro a la tabla
+                        var porcentaje = '<div id="progreso_' + datos.solicitud + '" class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%"></div></div>';    
+                        var fila = '<tr id="fila' + datos.solicitud + '"><td>' + datos.solicitud + '</td><td>En Ejecución</td><td>' + porcentaje + '</td><td></td><td></td></tr>';
+                        $('#tablaDatos > tbody:last-child').append(fila);
+                        
+                        //Abrir tantas ventanas como personas
+                        for (var index = 0; index < datos.personas.length; index++) {
+
+                            setTimeout(function(index) {
+
+                                var wdw = window.open(urlConsultaProcesos, "_blank");
+
+                                //Se dan 10 segundos para que la página de procesos cargue
+                                setTimeout(function(index){
+                                    var mensaje = { objeto: datos.personas[index], indice: index }
+                                    wdw.postMessage(mensaje, '*');
+                                }, 10000, index);
+
+                            }, 2000 * index, index);
+                        }
+                    }else{
+                        mostrarMensaje("mensajePersonasNosEncontradas");
+                    }                    
+ 
+                }else{
+                    mostrarMensaje("mensajeErrorConsulta");
+                }                
+                
+            });
+        });
+
+    });
+
+    </script>
+</body>
+
+</html>
