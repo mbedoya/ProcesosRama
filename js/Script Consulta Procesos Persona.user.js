@@ -31,15 +31,16 @@
     //Tiempo de espera (para buscar nuevos procesos) en segundos
     var tiempo_espera_consulta = 60;
     //Tiempo de espera (entre cada entidad) en segundos
-    var tiempo_espera_entidades = 4;
+    var tiempo_espera_entidades = 7;
 
     //0001 - Demandante
-    var filtroTipoSujeto = "0001";
+    //0002 - Demandado
+    var filtroTipoSujeto = "0002";
     //2 - Nombre o razón social
     var filtroOpcionConsulta = "2";
 
     //Otras variables generales
-    var indiceConsultaCiudad;
+    var indiceConsultaCiudad = 1;
     var indiceConsultaEntidad;
     var nombre = "";
     var persona = null;
@@ -259,6 +260,10 @@
 
                         $("#mensaje").html(persona.numeroIdentificacion + " finalizado");
 
+                        setTimeout(function(){
+                            close();
+                        }, 3000);
+
                     }
 
                 }
@@ -292,7 +297,7 @@
     }
 
     //Buscar una persona dado el nombre ingresado
-    function buscarPersona(retomarProceso){
+    function buscarPersona(){
 
         console.log("iniciando la búsqueda de persona");
 
@@ -309,9 +314,6 @@
         if(cantidadCiudades > 1){
             console.log("iniciando consulta de ciudad");
 
-            if(!retomarProceso){
-                indiceConsultaCiudad = 1;
-            }
             $("#divAvance").css('width', indiceConsultaCiudad/cantidadCiudades*100 + '%');
             $("#divAvance").html(Math.round(indiceConsultaCiudad/cantidadCiudades*100) + '%');
             consultarCiudad(indiceConsultaCiudad);
@@ -411,17 +413,26 @@
 
             persona = event.data.objeto;
             idPersona = event.data.indice;
+            var tipoSujeto = event.data.tipoSujeto;
+
+            //Si se envía 1 entonces se cambia a Demandante, de lo contrario se deja en Demandado
+            if(tipoSujeto == 1){
+                filtroTipoSujeto = "0001";
+            }
+
             if(event.data.indiceCiudad){
                 console.log("Se iniciará desde la ciudad " + event.data.indiceCiudad);
                 indiceConsultaCiudad = event.data.indiceCiudad;
-                buscarPersona(true);
-            }else{
-                buscarPersona();
-            }            
+                procesosPersona = event.data.procesos;
+            }
+
+            buscarPersona();
 
         } else {
             // The data hasn't been sent from your site!
             // Be careful! Do not use it.
+            console.log("Datos enviados desde un dominio no permitido");
+            
             return;
         }
     });
