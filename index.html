@@ -89,7 +89,7 @@
             </div>
             <div class="col-sm-4">
                 <button id="btnIniciar" type="button" class="btn btn-default">Iniciar <span class="glyphicon glyphicon-play-circle"></span></button>
-                <button id="btnEnviar" type="button" class="btn btn-default">Enviar <span class="glyphicon glyphicon-play-circle"></span></button>
+                <!--  <button id="btnEnviar" type="button" class="btn btn-default">Enviar <span class="glyphicon glyphicon-play-circle"></span></button> -->
                 <button id="btnHistorial" type="button" class="btn btn-default">Historial<span class="glyphicon glyphicon-play-circle"></span></button>
             </div>
         </div>
@@ -119,18 +119,10 @@
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="js/bootstrap.min.js"></script>
 
+    <!-- Configuraciones -->
+    <script src="js/rama-configuracion.js"></script>
+
     <script>
-        //VARIABLES GLOBALES
-        var urlConsulta_Konfirma = "http://52.24.84.124:4312/RamaJudicialKon/resources/Riesgos/RamaConsulta";
-        var urlRegistro_Konfirma = "http://52.24.84.124:4312/RamaJudicialKon/resources/Riesgos/RamaInsert";
-        var usuario_Konfirma = "KonfirmaRama";
-        var clave_Konfirma = "z8uE9uEVI*fvV*$@k&O9";
-
-        var urlConsultaProcesos = "http://procesos.ramajudicial.gov.co/consultaprocesos/";
-
-        //Tiempo en segundos que debe transcurrir entre búsquedas de nuevos procesos pendientes por ejecución
-        var tiempoEntreBusquedasProcesos = 10;
-
         var prefijoAlmacenamientoLocal = "konfirma";
         var idSolicitud = null;
         var entidad = null;
@@ -139,6 +131,10 @@
         var estadosPersonas = [];
         var intTiempos;
         var tipoSujeto;
+        var razon_social_proveedor;
+        var tipo_documento_proveedor;
+        var tipo_persona_proveedor;
+        var minutosMaximosEsperaRelanzamiento = 5;
 
         //Variable para manejo de interval de chequeo de procesos terminados
         var intId;
@@ -152,6 +148,9 @@
                 "clave": clave_Konfirma,
                 "solicitud": idSolicitud,
                 "entidad": entidad,
+                "razon_social_proveedor": razon_social_proveedor,
+                "tipo_documento_proveedor": tipo_documento_proveedor,
+                "tipo_persona_proveedor": tipo_persona_proveedor,
                 "identificaciones": respuestasTodos
             };
 
@@ -228,6 +227,7 @@
                 indiceP = estadosPersonas.length - 1;
             }
             estadosPersonas[indiceP] = datos;
+            estadosPersonas[indiceP]["fechaRecepcion"] = new Date();
 
             //Se guarda el estado de las personas para futuro control
             localStorage[prefijoAlmacenamientoLocal + "_" + idSolicitud] = JSON.stringify(estadosPersonas);
@@ -241,6 +241,34 @@
                 if (!estadosPersonas[i].finalizado) {
                     terminados = false;
                     break;
+                }
+            }
+
+            return terminados;
+        }
+
+        //Relanzar Procesos que no han terminado y que no han resportado actividad
+        function relanzarProcesosNoTerminados() {
+
+            for (i = 0; i < estadosPersonas.length; i++) {
+                //Proceso no finalizado?
+                if (!estadosPersonas[i].finalizado) {
+                    var diff = Math.abs(new Date() - estadosPersonas[i]["fechaRecepcion"]);
+                    var minutes = Math.floor((diff/1000)/60);
+
+                    //No se ha reportado actividad?
+                    if(minutes > minutosMaximosEsperaRelanzamiento){
+                        console.log("Se ha encontrado sin reporte de actividad, se lanza de nuevo");
+                        console.log(estadosPersonas[i].persona);
+
+                        //Lanzar de nuevo el proceso para la persona pero iniciando en el indice de ciudad
+                        var wdw2 = window.open(urlConsultaProcesos, "_blank");
+
+                        setTimeout(function () {
+                            var mensaje = { objeto: estadosPersonas[i].persona, indice: estadosPersonas[i].id, indiceCiudad: estadosPersonas[i].indiceCiudad, tipoSujeto: tipoSujeto, procesos: estadosPersonas[i].procesos }
+                            wdw2.postMessage(mensaje, '*');
+                        }, 12000);
+                    }
                 }
             }
 
@@ -352,6 +380,9 @@
                         }
 
                     }, respuestas);
+                }else{
+                    //Si hay procesos que no han finalizado saber cuando fue la última vez que reportaron actividad, si han pasado
+                    //más de x minutos entonces relanzar.
                 }
 
             }, 30000);
@@ -440,9 +471,8 @@
                             $("#progreso_" + idSolicitud).html('<div class="progress-bar" role="progressbar" aria-valuenow="' + porcentaje + '" aria-valuemin="0" aria-valuemax="100" style="width:' + porcentaje + '%">' + porcentaje + '%</div>');
                         }
 
-                        //Sólo se llama a guardar si se ha finalizado, si no se ha iniciado ya el proceso y cuando la persona 0 termina
-                        if (event.data.finalizado && !guardardoIniciado && event.data.id == 0) {
-                            //if(event.data.indiceCiudad == 10 && !guardardoIniciado && event.data.id == 0){
+                        //Sólo se llama a guardar si se ha finalizado y si no se ha iniciado ya el proceso
+                        if (event.data.finalizado && !guardardoIniciado) {
 
                             guardardoIniciado = true;
 
@@ -585,6 +615,9 @@
                     entidad = datos.entidad;
                     personas = datos.personas;
                     tipoSujeto = datos.tiposujeto;
+                    razon_social_proveedor = datos.razon_social_proveedor;
+                    tipo_documento_proveedor = datos.tipo_documento_proveedor;
+                    tipo_persona_proveedor = datos.tipo_persona_proveedor;
 
                     if (personas != null && personas.length > 0) {
 
