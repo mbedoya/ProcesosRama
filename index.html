@@ -90,10 +90,11 @@
             <div class="col-sm-4">
                 <button id="btnIniciar" type="button" class="btn btn-default">Iniciar <span class="glyphicon glyphicon-play-circle"></span></button>
                 <!--  <button id="btnEnviar" type="button" class="btn btn-default">Enviar <span class="glyphicon glyphicon-play-circle"></span></button> -->
-                <button id="btnHistorial" type="button" class="btn btn-default">Historial<span class="glyphicon glyphicon-play-circle"></span></button>
+                <!--  <button id="btnHistorial" type="button" class="btn btn-default">Historial<span class="glyphicon glyphicon-play-circle"></span></button> -->
             </div>
         </div>
 
+        <!-- 
         <table id="tablaHistorial" class="table">
             <thead>
                 <tr>
@@ -111,6 +112,7 @@
             <tbody>
             </tbody>
         </table>
+        -->
 
     </div>
 
@@ -134,7 +136,7 @@
         var razon_social_proveedor;
         var tipo_documento_proveedor;
         var tipo_persona_proveedor;
-        var minutosMaximosEsperaRelanzamiento = 5;
+        var minutosMaximosEsperaRelanzamiento = 10;
 
         //Variable para manejo de interval de chequeo de procesos terminados
         var intId;
@@ -247,8 +249,23 @@
             return terminados;
         }
 
+        //Enviar datos de la persona a la ventana
+        function enviarDatosAVentana(wHdlr, persona){
+            var obj = persona;
+
+            setTimeout(function () {
+                console.log("Relanzando..");
+                console.log(obj);
+
+                var mensaje = { objeto: obj.persona, indice: obj.id, indiceCiudad: obj.indiceCiudad, tipoSujeto: tipoSujeto, procesos: obj.procesos }
+                wHdlr.postMessage(mensaje, '*');
+            }, 12000);
+        }
+
         //Relanzar Procesos que no han terminado y que no han resportado actividad
         function relanzarProcesosNoTerminados() {
+
+            console.log("Validando procesos a relanzar");
 
             for (i = 0; i < estadosPersonas.length; i++) {
                 //Proceso no finalizado?
@@ -257,22 +274,23 @@
                     var minutes = Math.floor((diff/1000)/60);
 
                     //No se ha reportado actividad?
-                    if(minutes > minutosMaximosEsperaRelanzamiento){
+                    if(minutes >= minutosMaximosEsperaRelanzamiento){
                         console.log("Se ha encontrado sin reporte de actividad, se lanza de nuevo");
                         console.log(estadosPersonas[i].persona);
+
+                        //Actualizar la fecha de recepción para que no sea relanzado.
+                        estadosPersonas[i]["fechaRecepcion"] = new Date();
 
                         //Lanzar de nuevo el proceso para la persona pero iniciando en el indice de ciudad
                         var wdw2 = window.open(urlConsultaProcesos, "_blank");
 
-                        setTimeout(function () {
-                            var mensaje = { objeto: estadosPersonas[i].persona, indice: estadosPersonas[i].id, indiceCiudad: estadosPersonas[i].indiceCiudad, tipoSujeto: tipoSujeto, procesos: estadosPersonas[i].procesos }
-                            wdw2.postMessage(mensaje, '*');
-                        }, 12000);
+                        enviarDatosAVentana(wdw2, estadosPersonas[i]);
+                        
+                    }else{
+                        console.log("No se relanza " + estadosPersonas[i].id + " porque no han pasado los minutos para relanzamiento " + minutosMaximosEsperaRelanzamiento + ", sólo han pasado " + minutes);
                     }
                 }
             }
-
-            return terminados;
         }
 
         function mostrarHistorial() {
@@ -328,7 +346,16 @@
 
         }
 
+        function reloadPage(){
+            var params = "";
+            if(!window.location.href.toLowerCase().endsWith("autostart")){
+                params = "?autostart";
+            }
+            location.href = window.location.href + params;
+        }
+
         function procesarEnvioResultados(enviarSinFinalizar) {
+
             console.log("Proceso de guardado iniciado");
 
             //Cada 30 segundos se valida si todos los procesos han terminado, esto después que termine el primer proceso
@@ -372,7 +399,9 @@
 
                             //Programar la nueva búsqueda
                             setTimeout(function(){
-                                buscarProcesosPendientes();
+
+                                reloadPage();
+                                //buscarProcesosPendientes();
                             }, tiempoEntreBusquedasProcesos*1000);
 
                         } else {
@@ -383,6 +412,7 @@
                 }else{
                     //Si hay procesos que no han finalizado saber cuando fue la última vez que reportaron actividad, si han pasado
                     //más de x minutos entonces relanzar.
+                    relanzarProcesosNoTerminados();
                 }
 
             }, 30000);
@@ -441,12 +471,15 @@
                 // The data has been sent from your site 
 
                 // The data sent with postMessage is stored in event.data 
-                console.log(event.data);
+                console.log("Se ha recibido notificación de búsqueda de persona por ciudad");
 
                 if (event.data.estado && event.data.indiceCiudad) {
+                    
                     var indiceCiudad = event.data.indiceCiudad;
                     var cantidadCiudades = event.data.cantidadCiudades;
                     var porcentaje = Math.round((indiceCiudad / cantidadCiudades) * 100);
+
+                    console.log("Persona indice: " + event.data.id + " ciudad: " + indiceCiudad + " ciudades: " + cantidadCiudades);
 
                     //Proceso detenido?
                     if (event.data.cantidadCiudades == 1) {
@@ -621,6 +654,8 @@
 
                     if (personas != null && personas.length > 0) {
 
+                        console.log("Se han encontrado " + personas.length + " personas para consultar");
+
                         //Adicionar registro a la tabla
                         var porcentaje = '<div id="progreso_' + datos.solicitud + '" class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%"></div></div>';
                         var tiempoEjecucion = '<div id="tiempo_' + datos.solicitud + '" >00:00:00</div>';
@@ -669,7 +704,9 @@
         $(document).ready(function () {
 
             //Buscar todos los procesos que están almacenados localmente
-            buscarProcesosAlmacenados();
+            if(window.location.href.toLowerCase().endsWith("autostart")){
+                buscarProcesosPendientes();
+            }
 
             $("#btnHistorial").click(function () {
                 mostrarHistorial();
