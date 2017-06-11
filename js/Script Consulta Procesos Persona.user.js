@@ -23,11 +23,6 @@
     var objetoPanelListaResultados = "pnlListaResultados";
     var objetoTablaListaResultados = "myTable";
 
-    //VARIABLES GLOBALES
-    var urlConsulta_Konfirma = "http://52.24.84.124:4312/RamaJudicialKon/resources/Riesgos/RamaConsulta";
-    var urlRegistro_Konfirma = "http://52.24.84.124:4312/RamaJudicialKon/resources/Riesgos/RamaInsert";
-    var usuario_Konfirma = "KonfirmaRama";
-    var clave_Konfirma = "z8uE9uEVI*fvV*$@k&O9";
     //Tiempo de espera (para buscar nuevos procesos) en segundos
     var tiempo_espera_consulta = 60;
     //Tiempo de espera (entre cada entidad) en segundos
@@ -50,6 +45,9 @@
     var procesosPersona = [];
     var respuestas = [];
     var idPersona = null;
+    var tipoSujeto;
+    var tipoPersona;
+    var tipoDocumento;
 
     //DEFINICIÓN DE FUNCIONES
     function getUrlVars() {
@@ -59,61 +57,6 @@
             vars[key] = value;
         });
         return vars;
-    }
-
-    function invocarServicioGuardado(fx, respuestasTodos){
-
-        console.log("objeto a enviar a Konfirma");
-
-        var objetoData = {
-            "usuario": usuario_Konfirma,
-            "clave": clave_Konfirma,
-            "solicitud": solicitud.solicitud,
-            "entidad": solicitud.entidad,
-            "identificaciones": respuestasTodos
-        };
-
-        console.log(JSON.stringify(objetoData));
-
-        var jqxhr = $.ajax({
-            url: urlRegistro_Konfirma,
-            data: JSON.stringify(objetoData),
-            dataType: "json",
-            type: "POST",
-            contentType: "application/json"
-        })
-        .done(function( data ) {
-            console.log(data);
-            fx(true, data);
-        })
-        .fail(function() {
-            console.log("error invocando Konfirma");
-            fx(false);
-        })
-        ;
-    }
-
-    function invocarServicioConsulta(fx){
-        var jqxhr = $.ajax( { 
-            url: urlConsulta_Konfirma,
-            data: JSON.stringify(
-                {
-                    "usuario":"KonfirmaRama",
-                    "clave":"z8uE9uEVI*fvV*$@k&O9"
-                }),
-            dataType: "json",
-            type: "POST",
-            contentType: "application/json"
-        })
-        .done(function( data ) {
-            console.log(data);
-            fx(true, data);
-        })
-        .fail(function() {
-            console.log("error invocando Konfirma");
-            fx(false);
-        })
-        ;
     }
 
     //Consultar Proceso abiertos para una Persona en una Entidad de una Ciudad
@@ -136,7 +79,7 @@
             //Natural por defecto
             $("#" + objetoTipoPersona).val(1);
             //Es Jurídica?
-            if (persona.tipo_persona.toLowerCase() === "pj"){
+            if (tipoPersona.toLowerCase() === "pj"){
                 //Juridica
                 $("#" + objetoTipoPersona).val(2);
             }
@@ -320,81 +263,12 @@
         }
     }
 
-    function buscarDesdeServicio(){
-
-        invocarServicioConsulta(function(exitoso, datos){
-            if(exitoso){
-                personas = datos.personas;
-                solicitud = datos;
-
-                if(personas && personas.length > 0){
-
-                    console.log("Proceso iniciado");
-                    console.log(new Date());
-
-                    indicePersona = 0;
-                    //Iniciar búsquedas
-                    persona = personas[indicePersona];
-                    if(persona.tipo_persona.toLowerCase() === "pn"){
-                        $("#txtNombrePersona").val(persona.nombres + " " + persona.apellidos);
-                    }else{
-                        $("#txtNombrePersona").val(persona.razon_social);
-                    }
-
-                    respuestas = [];
-                    procesosPersona = [];
-                    buscarPersona();
-
-                }else{
-                    alert("No se han encontrado personas para procesar en el servicio de Konfirma");
-
-                    setTimeout(function(){
-                        console.log("Inciando nueva búsqueda de procesos");
-                        buscarDesdeServicio();
-                    }, tiempo_espera_consulta*1000);
-                }
-            }else{
-                alert( "Se ha presentado un error consultado los procesos de búsqueda pendientes en el servicio de Konfirma" );  
-            }
-        });
-    }
-
     //INICIO DE EJECUCIÓN DEL SCRIPT
     function iniciar(){
 
         console.log("inicializado");
 
         $( "<div id='divConsultando' style='font-size:12px; align:left; text-align:left; width:50%; border: solid 1px blue; padding: 10px; color:blue'><p>Búsqueda automática de Personas Naturales y Jurídicas</p></div>" ).insertBefore( ".titulos" );
-
-        //Adicionar los controles y elementos del Script a la página
-
-        /*
-        //Adicionar los controles y elementos del Script a la página
-
-        //Adicionar el DIV donde se muestra la información y controles
-        $( "<div id='divConsultando' style='font-size:12px; align:left; text-align:left; width:50%; border: solid 1px blue; padding: 10px; color:blue'><p>Búsqueda automática de Personas Naturales y Jurídicas</p></div>" ).insertBefore( ".titulos" );
-
-        $("#divConsultando").append("<br />Avance del Proceso<div id='divAvance' style='color:white;text-align:center;background-color:green;width:0%;height:20px;padding: 5px;'>10%</div>");
-
-        //Adicionar espacio para ingreso de Nombre
-        $("#divConsultando").append("<p>Nombre: <input id='txtNombrePersona' type='text'/></p>");
-
-        //Adicionar caja de selección para persona Natural o Jurídica
-        $("#divConsultando").append("<p><input id='chkTipoPersona' type='checkbox'/> Persona Jurídica");
-
-        //Adicionar Botón de Búsqueda
-        $("#divConsultando").append("<p><input id='btnBuscar' type='button' value='Buscar' /></p>");
-
-        //Adicionar Botón de Búsqueda
-        $("#divConsultando").append("<p><input id='btnBusquedaServicio' type='button' value='Buscar en servicio' /></p>");
-
-        //Adicionar tabla de resultados de búsqueda
-        $("#divConsultando").append("<table id='trResultadosPersona'></table>");
-
-        document.getElementById('btnBuscar').addEventListener('click', buscarPersona, false);
-        document.getElementById('btnBusquedaServicio').addEventListener('click', buscarDesdeServicio, false);
-
-        */
 
         $("#divConsultando").append("<br /><p id='mensaje' style='color:blue'>Esperando por la Persona a procesar</p>");
 
@@ -413,7 +287,9 @@
 
             persona = event.data.objeto;
             idPersona = event.data.indice;
-            var tipoSujeto = event.data.tipoSujeto;
+            tipoSujeto = event.data.objeto.payload.tipoSujeto;
+            tipoPersona = event.data.objeto.payload.tipoPersona;
+            tipoDocumento = event.data.objeto.payload.tipoDocumento;
 
             //Si se envía 1 entonces se cambia a Demandante, de lo contrario se deja en Demandado
             if(tipoSujeto == 1){
