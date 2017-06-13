@@ -274,19 +274,12 @@
 
                     //Adicionar las respuestas de todas las personas
                     for (i = 0; i < estadosPersonas.length; i++) {
+                        
+                        var objPersona = personas[i];
+                        objPersona["payload"]["respuesta"] = estadosPersonas[i].procesos;
+                        respuestas.push(objPersona);
 
-                        var persona = estadosPersonas[i].persona;
                         contadorProcesosEncontrados += estadosPersonas[i].procesos.length;
-
-                        respuestas.push({
-                            "tipoIdentificacion": persona.tipoIdentificacion,
-                            "numeroIdentificacion": persona.numeroIdentificacion,
-                            "nombres": persona.nombres,
-                            "apellidos": persona.apellidos,
-                            "razon_social": persona.razon_social,
-                            "tipo_persona": persona.tipo_persona,
-                            "respuesta": estadosPersonas[i].procesos
-                        });
                     }
 
                     invocarServicioGuardado(function (exitoso) {
